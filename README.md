@@ -2,6 +2,10 @@
 
 An enterprise-grade sales call centre and callback triage application built for high-velocity sales and customer engagement teams (optimized for mattress, furniture, and consumer retail leads). Built with **React 18**, **Vite 5**, **Recharts**, a **Groq-powered dynamic conversational AI Voice Agent (Avani)**, and **Twilio carrier telephony integration**, styled in an ultra-modern dark glassmorphic UI.
 
+> 🌐 **Live Demo URL**: [https://on-grounai.netlify.app/](https://on-grounai.netlify.app/)  
+> 📦 **GitHub Repository**: [https://github.com/Davanahs/On-Ground.ai](https://github.com/Davanahs/On-Ground.ai)  
+> 🎯 **Submitted For**: On-Ground.ai Engineering Hiring Assignment (Deadline: Oct 20, 2026, 10:00 AM IST to `mukunda@on-ground.ai`)
+
 ---
 
 ## 📑 Table of Contents
@@ -14,11 +18,13 @@ An enterprise-grade sales call centre and callback triage application built for 
    - [D. Future Telephony Roadmap & Enterprise Requirements](#d-future-telephony-roadmap--enterprise-requirements)
 4. [Mobile Responsiveness & Dashboard Optimization](#-mobile-responsiveness--dashboard-optimization)
 5. [Core Platform Features & PDF Specification Checklist](#-core-platform-features--pdf-specification-checklist)
-6. [Tech Stack](#-tech-stack)
-7. [Quick Start & Local Setup](#-quick-start--local-setup)
-8. [Environment Configuration](#-environment-configuration)
-9. [Automated Testing & Build Validation](#-automated-testing--build-validation)
-10. [Deployment Guide (Netlify & Vercel)](#-deployment-guide-netlify--vercel)
+6. [Tech Stack & Why](#-tech-stack--why)
+7. [What is Done and What is Skipped](#-what-is-done-and-what-is-skipped)
+8. [AI Tools Used](#-ai-tools-used)
+9. [How to Run (Quick Start & Local Setup)](#-how-to-run-quick-start--local-setup)
+10. [Environment Configuration](#-environment-configuration)
+11. [Automated Testing & Build Validation](#-automated-testing--build-validation)
+12. [Deployment Guide (Netlify & Vercel)](#-deployment-guide-netlify--vercel)
 
 ---
 
@@ -203,21 +209,61 @@ The application is engineered to provide an identical first-class experience on 
 
 ---
 
-## 🛠 Tech Stack
+## 🛠 Tech Stack & Why
 
-- **Frontend Framework**: React 18.3 (`react`, `react-dom`)
-- **Routing**: React Router v7 (`react-router-dom`)
-- **Build Tooling & Dev Server**: Vite 5.4 with embedded API middleware
-- **Data Visualization**: Recharts 2.12
-- **Testing Engine**: Vitest 2.0 (unit tests for database mutations and phone formatting)
-- **AI Engine**: Groq Cloud API (`qwen/qwen3.8-27b`)
-- **Speech Engine**: Web Speech API (`SpeechSynthesis` & `SpeechRecognition` in `en-IN`)
-- **Telephony API**: Twilio Voice & TwiML REST API architecture
-- **Styling**: Vanilla CSS with curated Design System Tokens (`tokens.css` + `styles.css`). Pure CSS, no Tailwind.
+| Technology | Role | Why Chosen |
+|---|---|---|
+| **React 18.3** | Frontend Library | Concurrent rendering, `useSyncExternalStore` for flicker-free reactive state updates across dashboard widgets without heavy state management libraries. |
+| **Vite 5.4** | Build Tool & Dev Server | Instant Hot Module Replacement (<50ms), lightning-fast ES module bundling, built-in connect middleware for mock/serverless `/api` routing without a separate express daemon. |
+| **React Router v7** | Client-Side Routing | Declarative routing with URL parameter support, seamless navigation between Dashboard, Calls, Pulse, and Calendar views. |
+| **Vanilla CSS + Design Tokens** | Styling Architecture | Complete control over CSS custom properties, backdrop-filter glassmorphism, responsive grid layouts, and zero runtime overhead or CSS bundle bloat (intentionally avoiding Tailwind to demonstrate deep native CSS mastery). |
+| **Recharts 2.12** | Analytics Visualization | Declarative SVG-based charting with responsive container handling and custom tooltips for conversion analytics. |
+| **Groq Cloud API (`qwen/qwen3.8-27b`)** | Real-Time Conversational AI | Ultra-low inference latency (~300ms time-to-first-token), enabling realistic conversational voice interaction without the awkward multi-second pauses typical of standard LLM APIs. |
+| **Web Speech API** | Voice Engine | Native browser speech recognition (`webkitSpeechRecognition`) and Indian English synthesis (`en-IN`), providing zero-dependency microphone and speaker access without heavy WebRTC media servers. |
+| **Vitest 2.0** | Unit Testing Suite | Blazing fast ESM-native test runner compatible with Vite configuration, testing data integrity and E.164 phone logic. |
+| **LocalStorage Repository** | Data Persistence | Fulfills the assignment's explicit *"No backend"* constraint while delivering full offline state persistence and instant reactivity across browser tabs. |
 
 ---
 
-## 🚀 Quick Start & Local Setup
+## 📋 What is Done and What is Skipped
+
+### ✅ What is Done:
+1. **Strict 3-Tier Priority Queue**: Clearly separated task groups (*Missed Calls* $\rightarrow$ *Scheduled Follow-ups* $\rightarrow$ *Completed tasks*) with collapsible accordions on mobile.
+2. **Deterministic State Machine**: Strict outcome transitions (`Missed` + `No answer` stays in missed and increments attempts count; `Spoke, follow-up needed` mandates future date and moves to follow-ups; `Spoke, all done` finalizes into completed).
+3. **Dual Telephony Paradigms**:
+   - **Native Click-to-Dial (`tel:`)**: Mobile-ready device dialer with automatic window `visibilitychange` detector to trigger outcome logging on tab return.
+   - **Twilio Carrier Bridge**: Full backend serverless endpoints (`/api/call`, `/api/connect-customer`, `/api/ai-call`, `/api/ai-voice`) with TwiML generation.
+4. **Dynamic Conversational AI Voice Agent (Avani)**:
+   - Dynamic opening based on lead name, product interest, and call purpose.
+   - Real-time dynamic response based on caller's spoken input using Groq LLM inference.
+   - Line-by-line colored transcript and buying signal extraction logged to recent calls.
+5. **Calls to Make (Prospect Lead Qualification)**: Lead scoring based on Ideal Customer Profile (ICP), urgency signals, and quick-call triggers.
+6. **Interactive Calendar**: Month-view scheduling with visual call density badges and date-filtered callbacks.
+7. **Pulse Team Stream**: Internal communication channel with automated bot lead notifications.
+8. **Test Call Studio & Manual Dialer**: Form to manually test any phone number with immediate AI or native calling.
+9. **Full Mobile Responsiveness**: Verified across mobile phones (375px/390px/412px) with fixed bottom tab bar, hamburger drawer, zero horizontal overflow, and thumb-friendly button grids.
+
+### ⏭️ What is Skipped (and Why):
+1. **Live Carrier PSTN Phone Calls via Active Twilio API Key**:
+   - *Why Skipped*: The assignment PDF explicitly dictated: *"Data: a local JSON file or small mock module. No backend."* Furthermore, carrier cellular calling via Twilio requires paid commercial credits and Indian DLT regulatory approval. To avoid burning costs or forcing evaluators to whitelist phone numbers, the full Twilio backend code was written and verified, while live calling is powered by the in-browser dynamic Voice AI agent.
+2. **Dedicated Cloud Database (PostgreSQL / MongoDB)**:
+   - *Why Skipped*: In strict compliance with the *"No backend"* rule, state persistence is handled by a robust client-side repository pattern (`src/data/db.js`) backed by `localStorage` with reactive `useSyncExternalStore` hooks.
+3. **Full-Duplex WebRTC Audio Streaming with Barge-In**:
+   - *Why Skipped*: Building sub-200ms audio packet streaming requires a dedicated Node.js WebSocket media server (e.g. LiveKit/Daily.co or Twilio Media Streams), which would violate the client-side single-bundle requirement. Instead, the Web Speech turn-taking architecture achieves conversational AI directly in the browser.
+
+---
+
+## 🤖 AI Tools Used
+
+| Tool / Technology | Where / How it Was Used |
+|---|---|
+| **Antigravity AI Agent** | Used as the primary pair-programming assistant during development for architecture design, refactoring responsive CSS, implementing state machines, and writing Vitest tests. |
+| **Groq Cloud API (`qwen/qwen3.8-27b`)** | Used in production as the runtime LLM engine for the Voice AI Agent (Avani) to generate conversational responses in ~300ms. |
+| **Web Speech API (`SpeechRecognition` & `SpeechSynthesis`)** | Used in the frontend application to transcribe live microphone speech and synthesize speech in Indian English cadence (`en-IN`). |
+
+---
+
+## 🚀 How to Run (Quick Start & Local Setup)
 
 ### 1. Prerequisites
 - **Node.js**: Version 18.0 or higher.
