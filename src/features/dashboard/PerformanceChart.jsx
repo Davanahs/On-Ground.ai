@@ -19,10 +19,10 @@ export function PerformanceChart() {
       </div>
       <div className="chart-wrapper">
         <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={SERIES}>
+          <LineChart data={SERIES} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid stroke="rgba(255, 255, 255, 0.08)" />
-            <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} />
-            <YAxis stroke="#94a3b8" fontSize={11} />
+            <XAxis dataKey="day" stroke="#94a3b8" fontSize={11} tickLine={false} />
+            <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
             <Tooltip
               contentStyle={{
                 background: '#0f172a',

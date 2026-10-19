@@ -114,37 +114,39 @@ export function CallActions({ customerPhone, customerName, task, onShowToast, on
         {/* Mobile vs Desktop Primary Action */}
         <a
           href={`tel:${formattedCustomerPhone}`}
-          className="btn btn-green btn-sm"
+          className="btn btn-green btn-sm primary-call-btn"
           onClick={handleNativeCallClick}
           aria-label={`Call ${customerName}`}
         >
           {isMobileDevice ? '📱 Call on my phone' : '📱 Call from my phone'}
         </a>
 
-        {/* Action: Start AI call */}
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={handleAICall}
-          aria-label={`Start AI call for ${customerName}`}
-          title="Start AI voice call session powered by Groq"
-        >
-          🤖 Start AI call
-        </button>
-
-        {/* Action: Call me, then connect (Twilio Bridge) */}
-        {isApiAvailable && (
+        <div className="action-sub-grid">
+          {/* Action: Start AI call */}
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            disabled={loadingAction !== null}
-            onClick={handleBridgeCall}
-            aria-label={`Call me then connect to ${customerName}`}
-            title={`Ring my phone (${formattedAgentPhone}) then dial ${formattedCustomerPhone}`}
+            className="btn btn-secondary btn-sm ai-call-btn"
+            onClick={handleAICall}
+            aria-label={`Start AI call for ${customerName}`}
+            title="Start AI voice call session powered by Groq"
           >
-            {loadingAction === 'bridge' ? '⏳ Connecting...' : '🔄 Call me, then connect'}
+            🤖 Start AI call
           </button>
-        )}
+
+          {/* Action: Call me, then connect (Twilio Bridge) */}
+          {isApiAvailable && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm bridge-call-btn"
+              disabled={loadingAction !== null}
+              onClick={handleBridgeCall}
+              aria-label={`Call me then connect to ${customerName}`}
+              title={`Ring my phone (${formattedAgentPhone}) then dial ${formattedCustomerPhone}`}
+            >
+              {loadingAction === 'bridge' ? '⏳ Connecting...' : '🔄 Bridge Call'}
+            </button>
+          )}
+        </div>
       </div>
 
       {statusMsg && <div className="action-status-inline">{statusMsg}</div>}

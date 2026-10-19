@@ -32,6 +32,7 @@ export function Dashboard({ onInitiateCall, onLogOutcome, onOpenAIPractice, onVi
             onLogOutcome={onLogOutcome}
             onOpenAIPractice={onOpenAIPractice}
             onShowToast={onShowToast}
+            defaultExpanded={true}
           />
 
           {/* SECTION 2: FOLLOW-UPS */}
@@ -44,6 +45,7 @@ export function Dashboard({ onInitiateCall, onLogOutcome, onOpenAIPractice, onVi
             onLogOutcome={onLogOutcome}
             onOpenAIPractice={onOpenAIPractice}
             onShowToast={onShowToast}
+            defaultExpanded={true}
           />
 
           {/* SECTION 3: COMPLETED */}
@@ -56,6 +58,7 @@ export function Dashboard({ onInitiateCall, onLogOutcome, onOpenAIPractice, onVi
             onLogOutcome={onLogOutcome}
             onOpenAIPractice={onOpenAIPractice}
             onShowToast={onShowToast}
+            defaultExpanded={false}
           />
         </div>
 
@@ -69,13 +72,16 @@ export function Dashboard({ onInitiateCall, onLogOutcome, onOpenAIPractice, onVi
           onViewChange={onViewChange}
           onShowToast={onShowToast}
         />
-        <CalendarView
-          onInitiateCall={onInitiateCall}
-          onLogOutcome={onLogOutcome}
-          onOpenAIPractice={onOpenAIPractice}
-          onShowToast={onShowToast}
-        />
+        <div className="desktop-only-widget">
+          <CalendarView
+            onInitiateCall={onInitiateCall}
+            onLogOutcome={onLogOutcome}
+            onOpenAIPractice={onOpenAIPractice}
+            onShowToast={onShowToast}
+          />
+        </div>
       </div>
+
     </div>
   );
 }
