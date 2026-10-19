@@ -42,8 +42,9 @@ export default async function handler(req, res) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'openai/gpt-oss-20b',
+          model: 'qwen/qwen3.8-27b',
           messages: [
+
             {
               role: 'system',
               content: `You are Avani, sales representative at On-Ground AI Call Centre in India calling customer ${name} regarding ${contextDesc}. The customer answered your call over the phone and said something. Answer politely and concisely in 1 spoken sentence (under 25 words). Ask follow-up questions to understand their needs. No markdown, emojis, or bullet points.`

@@ -20,11 +20,15 @@ export function CallsToMake({ onInitiateCall, onSelectLead, onOpenAIPractice, on
   return (
     <div className="calls-table-container glass-card">
       <div className="section-header">
-        <h3>Calls to Make — Active Leads Directory</h3>
+        <div>
+          <h3>Calls to Make — Active Leads Directory</h3>
+          <p className="section-subtitle">Ranked by ICP fit score & ready for outreach.</p>
+        </div>
         <span className="section-count">{leads.length} leads total</span>
       </div>
 
-      <div className="table-wrapper">
+      {/* DESKTOP TABLE VIEW */}
+      <div className="table-wrapper desktop-only-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -90,6 +94,63 @@ export function CallsToMake({ onInitiateCall, onSelectLead, onOpenAIPractice, on
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* MOBILE RESPONSIVE CARDS VIEW */}
+      <div className="mobile-leads-cards-list">
+        {paginatedLeads.map((lead) => (
+          <div key={lead.id} className="mobile-lead-card glass-card">
+            <div className="mobile-lead-header">
+              <div>
+                <h4 className="caller-name">{lead.name}</h4>
+                <span className="caller-phone">{lead.phone}</span>
+              </div>
+              <div className="mobile-lead-badges">
+                <span className="score-badge">{lead.score}% ICP</span>
+                <span className={`pill pill-${lead.status.toLowerCase()}`}>{lead.status}</span>
+              </div>
+            </div>
+
+            <div className="mobile-lead-product">
+              Interest: <b>{lead.product}</b> &bull; Value: <b>{formatINR(lead.value)}</b>
+            </div>
+
+            <div className="mobile-lead-actions">
+              <CallActions
+                customerPhone={lead.phone}
+                customerName={lead.name}
+                task={{
+                  id: 'task_' + lead.id,
+                  name: lead.name,
+                  phone: lead.phone,
+                  product: lead.product,
+                  type: 'missed',
+                  value: lead.value
+                }}
+                onOpenOutcome={onInitiateCall}
+                onOpenAIPractice={onOpenAIPractice}
+                onShowToast={onShowToast}
+              />
+
+              <div className="mobile-lead-aux-buttons">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm flex-1"
+                  onClick={() => copyNumber(lead.phone)}
+                >
+                  📋 Copy Phone
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm flex-1"
+                  onClick={() => onSelectLead(lead)}
+                >
+                  👤 View Dossier
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {totalPages > 1 && (

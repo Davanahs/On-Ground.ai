@@ -90,5 +90,9 @@ function apiDevServerPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), apiDevServerPlugin()]
+  plugins: [react(), apiDevServerPlugin()],
+  define: {
+    'import.meta.env.VITE_GROQ_API_KEY': JSON.stringify(process.env.GROQ_API_KEY || '')
+  }
 });
+

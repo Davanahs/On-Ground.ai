@@ -45,11 +45,12 @@ Important Guidelines:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-20b',
+        model: 'qwen/qwen3.8-27b',
         messages: groqMessages,
-        max_tokens: 500,
+        max_tokens: 150,
         temperature: 0.6
       })
+
     });
 
     const data = await response.json();

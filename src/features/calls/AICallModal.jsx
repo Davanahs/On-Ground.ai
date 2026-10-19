@@ -138,7 +138,7 @@ export function AICallModal({ lead, onClose, onShowToast }) {
 
     let reply = '';
 
-    // First attempt: Call Groq AI through /api/ai-chat
+    // 1. First attempt: Call backend /api/ai-chat
     try {
       const history = transcriptRef.current.map((line) => {
         const isAgent = line.startsWith('Agent');
@@ -160,22 +160,73 @@ export function AICallModal({ lead, onClose, onShowToast }) {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.reply) {
-          reply = data.reply;
+        const isJson = (res.headers.get('content-type') || '').includes('json');
+        if (isJson) {
+          const data = await res.json();
+          if (data.reply) reply = data.reply;
         }
       }
     } catch (err) {
-      console.warn('Groq AI endpoint fallback:', err);
+      console.warn('Groq AI backend fallback:', err);
     }
 
-    // Fallback: rule-based responses if Groq is unavailable
+    // 2. Direct client-side Groq call (Ensures 100% REAL dynamic AI on static Netlify deployment too!)
+    if (!reply) {
+      try {
+        const clientApiKey = import.meta.env.VITE_GROQ_API_KEY;
+        if (!clientApiKey) throw new Error('VITE_GROQ_API_KEY not set');
+        const contextNote = purpose ? `Call Purpose: "${purpose.trim()}" for ${customerProduct}` : `Inquiry for ${customerProduct}`;
+
+        const systemPrompt = `You are Avani, a professional, warm sales consultant at On-Ground.ai Call Centre in Bengaluru, India.
+You are in a live phone call with ${customerName}. Context: ${contextNote}.
+Important Guidelines:
+- Answer politely in 1-2 spoken sentences strictly under 30 words in natural Indian English.
+- Address exactly what ${customerName} asked or said dynamically.
+- Mention offers when relevant: 0% no-cost EMI for 6 to 12 months, 10-year warranty, 100-night trial.
+- Never use emojis, asterisks, bullet points, or markdown. Output only the spoken words.`;
+
+        const history = transcriptRef.current.map((line) => {
+          const isAgent = line.startsWith('Agent');
+          return {
+            role: isAgent ? 'assistant' : 'user',
+            content: line.replace(/^(Agent \(AI\)|Customer):\s*/, '')
+          };
+        });
+
+        const gRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${clientApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'qwen/qwen3.8-27b',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...history.slice(-8)
+            ],
+            max_tokens: 150,
+            temperature: 0.6
+          })
+        });
+
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          reply = gData.choices?.[0]?.message?.content?.trim() || '';
+        }
+      } catch (clientErr) {
+        console.warn('Direct Groq API fallback:', clientErr);
+      }
+    }
+
+    // 3. Last fallback: rule-based responses if completely offline
     if (!reply) {
       const match = KEYWORD_RULES.find(([regex]) => regex.test(cleanInput));
       reply = match
         ? match[1]
         : 'Understood. Could you tell me a bit more about your preference or requirement?';
     }
+
 
     setIsThinking(false);
     speak(reply);
