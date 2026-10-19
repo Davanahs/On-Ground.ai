@@ -66,12 +66,13 @@ export function AICallModal({ lead, onClose, onShowToast }) {
         })
       });
 
-      const data = await res.json().catch(() => ({}));
+      const isJson = (res.headers.get('content-type') || '').includes('json');
+      const data = isJson ? await res.json().catch(() => ({})) : {};
 
-      if (!res.ok) {
+      if (!res.ok || !data.sid) {
         setTelephonyStatus({
           type: 'error',
-          msg: data.error || 'Outbound call failed. Check server logs or telephony credentials.'
+          msg: data.error || 'Cloud Telephony carrier is not connected on this server/Netlify deployment. Real cellular phone dialing requires Twilio credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM).'
         });
       } else {
         const sid = data.sid || 'SID-' + Date.now();
@@ -96,12 +97,13 @@ export function AICallModal({ lead, onClose, onShowToast }) {
     } catch (err) {
       setTelephonyStatus({
         type: 'error',
-        msg: 'Serverless telephony endpoint /api/ai-call unavailable. (If deployed statically on Netlify, serverless functions require Netlify/Vercel backend configuration).'
+        msg: 'Cloud Telephony carrier is not connected on this server/Netlify deployment. Real cellular phone dialing requires Twilio credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM).'
       });
     } finally {
       setIsDialing(false);
     }
   };
+
 
   // --- IN-BROWSER AUDIO ACTIONS (SIMULATION / VOICE TEST) ---
   const appendLog = (speaker, text) => {
@@ -325,13 +327,24 @@ export function AICallModal({ lead, onClose, onShowToast }) {
             {telephonyStatus && (
               <div className={`telephony-status-alert ${telephonyStatus.type}`}>
                 <p><strong>{telephonyStatus.type === 'error' ? '⚠️ Notice' : '📞 Call Status'}:</strong> {telephonyStatus.msg}</p>
-                {telephonyStatus.type === 'error' && telephonyStatus.msg.includes('TWILIO') && (
-                  <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.9 }}>
-                    💡 <b>Tip:</b> Real carrier phone calls require active Twilio credentials in <code>.env</code> (<code>TWILIO_SID</code>, <code>TWILIO_TOKEN</code>, <code>TWILIO_FROM</code>). To test Avani right now without a telecom provider, click the <b>"Web Voice Test"</b> tab above!
+                {telephonyStatus.type === 'error' && (
+                  <div style={{ marginTop: '10px', fontSize: '11px', opacity: 0.95 }}>
+                    <p style={{ marginBottom: '6px', color: '#cbd5e1' }}>
+                      💡 <b>Test right now:</b> You can speak with Avani immediately on your phone using your device microphone & speaker!
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-green btn-sm"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={() => setActiveTab('browser')}
+                    >
+                      🎙️ Test Avani Voice in Browser Now
+                    </button>
                   </div>
                 )}
               </div>
             )}
+
 
             <div className="telephony-actions">
               <button

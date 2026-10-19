@@ -5,13 +5,14 @@ export function Sidebar({ currentView, onViewChange, onOpenAIPractice }) {
   const missedCount = tasks.filter((t) => t.type === 'missed').length;
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-    { id: 'calls', label: 'Calls to Make', icon: '📞' },
-    { id: 'incoming', label: 'Incoming Calls', icon: '🔔', badge: missedCount },
-    { id: 'recent', label: 'Recent Calls', icon: '🕘' },
-    { id: 'calendar', label: 'Calendar', icon: '📅' },
-    { id: 'pulse', label: 'Pulse', icon: '💬' }
+    { id: 'dashboard', label: 'Home', icon: '🏠' },
+    { id: 'calls', label: 'Calls', icon: '📞' },
+    { id: 'test-call', label: 'Test Call', icon: '➕', isAction: true },
+    { id: 'incoming', label: 'Incoming', icon: '🔔', badge: missedCount },
+    { id: 'recent', label: 'Recent', icon: '🕘' },
+    { id: 'calendar', label: 'Calendar', icon: '📅' }
   ];
+
 
   return (
     <aside className="sidebar-container glass-card">

@@ -10,6 +10,7 @@ import { PulseView } from './features/pulse/PulseView.jsx';
 import { OutcomeModal } from './features/calls/OutcomeModal.jsx';
 import { LeadModal } from './features/calls/LeadModal.jsx';
 import { AICallModal } from './features/calls/AICallModal.jsx';
+import { QuickCall } from './features/calls/QuickCall.jsx';
 import { useLeads } from './data/hooks.js';
 import { startPending, peekPending, markHidden, takePending, MIN_AWAY_MS, MAX_AGE_MS } from './utils/pendingCall.js';
 
@@ -80,10 +81,25 @@ export default function App() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onShowToast={showToast}
+          currentView={currentView}
+          onViewChange={setCurrentView}
         />
+
+        {currentView === 'test-call' && (
+          <div className="test-call-view-container">
+            <QuickCall
+              onQuickDial={handleInitiateCall}
+              onOpenOutcome={setActiveOutcomeTask}
+              onOpenAIPractice={handleOpenAICall}
+              onViewChange={setCurrentView}
+              onShowToast={showToast}
+            />
+          </div>
+        )}
 
         {currentView === 'dashboard' && (
           <Dashboard
+
             onInitiateCall={handleInitiateCall}
             onLogOutcome={setActiveOutcomeTask}
             onOpenAIPractice={handleOpenAICall}
