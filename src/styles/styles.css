@@ -894,11 +894,25 @@
   }
 }
 
+/* Suppress Netlify floating badge so it does not block navigation or modals */
+[class*="netlify-badge"],
+[id*="netlify-badge"],
+.netlify-badge,
+iframe[src*="netlify"],
+div[data-netlify-badge],
+div[style*="z-index: 10000"],
+div[style*="z-index: 2147483647"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 @media (max-width: 768px) {
   .app-shell {
     flex-direction: column;
     padding: 8px;
-    padding-bottom: 96px; /* Safe clearance for mobile bottom bar + Netlify badge */
+    padding-bottom: 110px; /* Safe clearance for mobile bottom bar + phone home bars */
   }
 
   /* Transform Sidebar to Bottom Tab Navigation */
@@ -909,16 +923,17 @@
     right: 0;
     top: auto;
     width: 100%;
-    height: 64px;
+    height: 66px;
     border-radius: 0;
     border-top: 1px solid var(--glass-border-light);
-    background: rgba(11, 17, 32, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(11, 17, 32, 0.98);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
     flex-direction: row;
     align-items: center;
-    padding: 0 4px;
-    z-index: 1000;
+    padding: 4px 6px max(6px, env(safe-area-inset-bottom));
+    z-index: 999999; /* Higher than any floating widgets or badges */
+    box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.7);
   }
 
   .brand-logo, .ai-practice-section {
@@ -929,8 +944,9 @@
     flex-direction: row;
     justify-content: space-around;
     width: 100%;
-    gap: 2px;
+    gap: 4px;
   }
+
 
   .nav-item {
     flex: 1;
@@ -1542,6 +1558,33 @@
   width: 100%;
   justify-content: center;
 }
+
+.active-call-header-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: #e2e8f0;
+}
+
+.live-dot {
+  color: var(--accent-green);
+  font-size: 14px;
+}
+
+.live-dot.pulse {
+  animation: pulseDot 1s infinite alternate;
+}
+
+@keyframes pulseDot {
+  from { opacity: 0.3; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.3); }
+}
+
 
 
 

@@ -11,8 +11,9 @@ const KEYWORD_RULES = [
 ];
 
 export function AICallModal({ lead, onClose, onShowToast }) {
-  // Mode: 'cellular' (real outbound phone call to customer's mobile) vs 'browser' (web audio test)
-  const [activeTab, setActiveTab] = useState('cellular');
+  // Mode: 'browser' (instant working interactive Voice AI call) vs 'cellular' (Twilio carrier outbound call)
+  const [activeTab, setActiveTab] = useState('browser');
+
 
   // Customer & context details
   const customerName = lead?.name || 'Customer';
@@ -280,19 +281,20 @@ export function AICallModal({ lead, onClose, onShowToast }) {
         <div className="ai-modal-tabs">
           <button
             type="button"
-            className={`ai-tab-btn ${activeTab === 'cellular' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cellular')}
-          >
-            📞 Dial Customer Phone (Twilio PSTN)
-          </button>
-          <button
-            type="button"
             className={`ai-tab-btn ${activeTab === 'browser' ? 'active' : ''}`}
             onClick={() => setActiveTab('browser')}
           >
-            🎙️ Web Voice Test (Browser AI)
+            🎙️ Live Voice AI Call (Interactive Demo)
+          </button>
+          <button
+            type="button"
+            className={`ai-tab-btn ${activeTab === 'cellular' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cellular')}
+          >
+            📡 Cloud Telephony (Twilio PSTN)
           </button>
         </div>
+
 
         {/* TAB 1: REAL OUTBOUND PHONE CALL TO CUSTOMER'S MOBILE */}
         {activeTab === 'cellular' && (
@@ -367,12 +369,31 @@ export function AICallModal({ lead, onClose, onShowToast }) {
           </div>
         )}
 
-        {/* TAB 2: IN-BROWSER AUDIO / VOICE AI TEST */}
+        {/* TAB 1: IN-BROWSER AUDIO / VOICE AI TEST */}
         {activeTab === 'browser' && (
-          <div>
-            <p className="ai-subtext">
-              Lead: <b>{customerName}</b> &middot; Product: <b>{customerProduct}</b>
-            </p>
+          <div className="telephony-pane">
+            <div className="active-call-header-badge">
+              <span className={`live-dot ${isLive ? 'pulse' : ''}`}>●</span>{' '}
+              {isLive ? (
+                <span>Connected: <b>{customerName}</b> ({customerPhone || 'Online'})</span>
+              ) : (
+                <span>Ready to call: <b>{customerName}</b> ({customerPhone || 'Online'})</span>
+              )}
+            </div>
+
+            <div className="telephony-field">
+              <label>Call Purpose / Talking Points for Avani</label>
+              <input
+                type="text"
+                className="telephony-input"
+                placeholder="e.g. Inquired about Ortho GRID mattress; 0% EMI and warranty"
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                disabled={isLive}
+                aria-label="Call purpose or topic"
+              />
+            </div>
+
             <div className="simulation-tag">
               ⚡ Powered by Groq AI &middot; Voice Speech Synthesis (en-IN) &middot; Speech Recognition
             </div>
@@ -380,7 +401,7 @@ export function AICallModal({ lead, onClose, onShowToast }) {
             <div className="ai-log-box">
               {log.length === 0 ? (
                 <div className="ai-log-empty">
-                  Click "Start AI Web Call" to speak directly with Avani using your device microphone/speaker.
+                  Click "Start Live AI Voice Call" below to speak directly with Avani on your phone's speaker and microphone.
                 </div>
               ) : (
                 log.map((item, idx) => (
@@ -402,11 +423,11 @@ export function AICallModal({ lead, onClose, onShowToast }) {
             {!isLive ? (
               <div className="modal-actions">
                 <button
-                  className="btn btn-green"
+                  className="btn btn-green flex-1"
                   onClick={startAICall}
-                  aria-label="Start AI web call"
+                  aria-label="Start Live AI voice call"
                 >
-                  ▶ Start AI Web Call
+                  ▶ Start Live AI Voice Call
                 </button>
                 <button
                   className="btn btn-secondary"
@@ -417,6 +438,7 @@ export function AICallModal({ lead, onClose, onShowToast }) {
                 </button>
               </div>
             ) : (
+
               <div className="ai-active-controls">
                 <form
                   onSubmit={(e) => {
