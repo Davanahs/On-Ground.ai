@@ -19,12 +19,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'GROQ_API_KEY is not configured in .env' });
   }
 
-  const { messages = [], customerName = 'there', product = 'Ortho GRID Mattress' } = req.body || {};
+  const { messages = [], customerName = 'there', product = 'Ortho GRID Mattress', purpose = '' } = req.body || {};
 
+  const contextNote = purpose ? `Call Purpose: "${purpose}" for product: ${product}` : `Inquiry about: ${product}`;
   const systemPrompt = `You are Avani, a friendly, professional, and empathetic sales consultant at On-Ground.ai Call Centre in Bengaluru, India.
-You are in a live phone conversation with ${customerName} regarding their interest in the ${product}.
+You are in a live phone conversation with ${customerName}. Context: ${contextNote}.
 Important Guidelines:
 - Keep every answer short and conversational (1-2 sentences maximum, strictly under 40 words). This is spoken audio, not an email.
+- Ask questions and respond dynamically based on what ${customerName} says and the purpose of this call.
 - Sound warm, polite, and helpful in standard Indian English.
 - Highlight key benefits when relevant: 0% no-cost EMI for 6 to 12 months, 10-year warranty, 100-night risk-free trial.
 - Guide the conversation gently toward scheduling a showroom visit or placing an order.
