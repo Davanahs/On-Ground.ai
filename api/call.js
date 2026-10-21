@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Server misconfiguration: ALLOWED_NUMBERS is not configured' });
   }
 
-  if (!allowed.includes(customerPhone)) {
+  if (!allowed.includes('*') && !allowed.includes(customerPhone)) {
     return res.status(403).json({ error: 'Customer number not in allowed numbers list' });
   }
 
@@ -33,8 +33,13 @@ export default async function handler(req, res) {
 
   try {
     const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host;
-    const bridgeUrl = `${protocol}://${host}/api/connect-customer?to=${encodeURIComponent(customerPhone)}`;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    let baseUrl = process.env.PUBLIC_URL || process.env.APP_URL;
+    if (!baseUrl) {
+      baseUrl = `${protocol}://${host}`;
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    const bridgeUrl = `${baseUrl}/api/connect-customer?to=${encodeURIComponent(customerPhone)}`;
 
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Calls.json`, {
       method: 'POST',

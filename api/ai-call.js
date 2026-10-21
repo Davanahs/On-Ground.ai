@@ -11,7 +11,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid phone number format. Must be E.164 (e.g. +919876543210)' });
   }
 
-  const allowed = (process.env.ALLOWED_NUMBERS || '')
+  let env = { ...process.env };
+  try {
+    const fs = await import('fs');
+    if (fs.existsSync('.env')) {
+      const content = fs.readFileSync('.env', 'utf8');
+      content.split(/\r?\n/).forEach((line) => {
+        const match = line.match(/^([A-Za-z0-9_]+)=(.*)$/);
+        if (match) {
+          env[match[1].trim()] = match[2].trim();
+        }
+      });
+    }
+  } catch {}
+
+  const allowed = (env.ALLOWED_NUMBERS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -26,7 +40,7 @@ export default async function handler(req, res) {
     });
   }
 
-  const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM } = process.env;
+  const { TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM } = env;
   if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM || TWILIO_SID.startsWith('ACxxxxxxx')) {
     return res.status(500).json({
       error: 'Twilio telephony credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM) not configured in .env. Telephony carrier is required to ring a real cellular mobile phone.'
@@ -35,13 +49,27 @@ export default async function handler(req, res) {
 
   try {
     const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    let baseUrl = env.PUBLIC_URL || env.APP_URL;
+
+    if (!baseUrl) {
+      baseUrl = `${protocol}://${host}`;
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+
+    // Check if baseUrl is pointing to localhost when testing locally without a tunnel
+    if ((baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) && !process.env.PUBLIC_URL) {
+      return res.status(400).json({
+        error: 'Twilio cloud cannot reach http://localhost to speak TwiML. When testing locally, please run ngrok (e.g. "ngrok http 5173") and set PUBLIC_URL=https://<your-id>.ngrok-free.app in .env, or deploy the app to Netlify/Vercel.'
+      });
+    }
+
     const voiceParams = new URLSearchParams({
       name: name || 'Customer',
       purpose: purpose || '',
       product: product || 'Ortho GRID Mattress'
     });
-    const url = `${protocol}://${host}/api/ai-voice?${voiceParams.toString()}`;
+    const url = `${baseUrl}/api/ai-voice?${voiceParams.toString()}`;
 
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Calls.json`, {
       method: 'POST',

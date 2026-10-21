@@ -5,6 +5,7 @@ import callHandler from './api/call.js';
 import aiCallHandler from './api/ai-call.js';
 import aiVoiceHandler from './api/ai-voice.js';
 import connectCustomerHandler from './api/connect-customer.js';
+import callTranscriptHandler from './api/call-transcript.js';
 
 function apiDevServerPlugin() {
   return {
@@ -18,6 +19,9 @@ function apiDevServerPlugin() {
         if (!req.url || !req.url.startsWith('/api/')) {
           return next();
         }
+
+        const freshEnv = loadEnv('', process.cwd(), '');
+        Object.assign(process.env, freshEnv);
 
         const urlObj = new URL(req.url, 'http://localhost');
         const pathname = urlObj.pathname;
@@ -74,6 +78,8 @@ function apiDevServerPlugin() {
               await aiVoiceHandler(req, res);
             } else if (pathname === '/api/connect-customer') {
               await connectCustomerHandler(req, res);
+            } else if (pathname === '/api/call-transcript') {
+              await callTranscriptHandler(req, res);
             } else {
               res.status(404).json({ error: `Endpoint ${pathname} not found` });
             }

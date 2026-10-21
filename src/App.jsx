@@ -73,7 +73,7 @@ export default function App() {
       <Sidebar
         currentView={currentView}
         onViewChange={setCurrentView}
-        onOpenAIPractice={() => handleOpenAICall(leads[0])}
+        onOpenAIPractice={() => handleOpenAICall({ ...(leads[0] || {}), initialTab: 'browser' })}
       />
 
       <main className="main-content">

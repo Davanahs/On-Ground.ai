@@ -10,22 +10,109 @@ const KEYWORD_RULES = [
   [/no|not now|later|busy/i, 'No problem at all! I will schedule a quick check-in call for next week. Thank you for your time.']
 ];
 
-export function AICallModal({ lead, onClose, onShowToast }) {
-  // Mode: 'browser' (instant working interactive Voice AI call) vs 'cellular' (Twilio carrier outbound call)
-  const [activeTab, setActiveTab] = useState('browser');
-
+export function AICallModal({ lead, onClose, onShowToast, defaultTab = 'cellular' }) {
+  // Mode: 'cellular' (Real Twilio carrier outbound call to customer) vs 'browser' (Agent Practice / Demonstration)
+  const [activeTab, setActiveTab] = useState(lead?.initialTab || defaultTab);
 
   // Customer & context details
   const customerName = lead?.name || 'Customer';
   const customerPhone = formatE164(lead?.phone || '');
+  const [targetPhone, setTargetPhone] = useState(customerPhone);
   const customerProduct = lead?.product || 'Ortho GRID Mattress';
   const initialPurpose = lead?.note || `Inquired about ${customerProduct}; check interest in 0% EMI and book store visit`;
 
   const [purpose, setPurpose] = useState(initialPurpose);
 
   // Cellular Telephony state
-  const [telephonyStatus, setTelephonyStatus] = useState(null); // { type: 'idle'|'loading'|'active'|'error', msg, sid }
+  const [telephonyStatus, setTelephonyStatus] = useState(null); // { type: 'idle'|'loading'|'active'|'completed'|'error', msg, sid, duration }
   const [isDialing, setIsDialing] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState([]);
+  const [telephonySecs, setTelephonySecs] = useState(0);
+  const telephonySecsRef = useRef(0);
+  const telephonyTimerRef = useRef(null);
+  const callSavedRef = useRef(false);
+
+  // Finalize and save the real cellular call with full transcript
+  const finalizeTelephonyCall = (transcriptTurns = liveTranscript, customDur) => {
+    if (callSavedRef.current) return;
+    callSavedRef.current = true;
+
+    if (telephonyTimerRef.current) clearInterval(telephonyTimerRef.current);
+
+    const durationSecs = telephonySecsRef.current || 45;
+    const durFormatted = customDur || (
+      String(Math.floor(durationSecs / 60)).padStart(2, '0') +
+      ':' +
+      String(durationSecs % 60).padStart(2, '0')
+    );
+
+    const formattedTarget = formatE164(targetPhone);
+    const transcriptLines = (transcriptTurns || []).map((t) => `${t.speaker}: ${t.text}`);
+
+    const textAll = transcriptLines.join(' ');
+    let noteText = `AI Call completed with ${customerName} (${formattedTarget}) regarding ${customerProduct}.`;
+    if (/emi|cost|price/i.test(textAll)) noteText += ' Customer inquired about 0% EMI pricing.';
+    if (/warrant|trial/i.test(textAll)) noteText += ' Customer inquired about 10-year warranty.';
+    if (/whatsapp|catalog|send/i.test(textAll)) noteText += ' Requested brochure on WhatsApp.';
+
+    // Save real completed call in db
+    db.addCall({
+      leadName: customerName,
+      phone: formattedTarget,
+      type: 'AI Phone Call (PSTN)',
+      outcome: 'ai_completed',
+      duration: durFormatted,
+      note: noteText,
+      transcript: transcriptLines
+    });
+
+    setTelephonyStatus({
+      type: 'completed',
+      duration: durFormatted,
+      sid: telephonyStatus?.sid,
+      msg: `Call ended successfully. Full transcript and outcomes recorded to Recent Calls!`
+    });
+
+    if (onShowToast) onShowToast(`Call ended & saved to Recent Calls!`);
+  };
+
+  // Poll live transcript and auto-detect call completion
+  useEffect(() => {
+    if (!telephonyStatus?.sid || telephonyStatus.type !== 'active') return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/call-transcript?sid=${encodeURIComponent(telephonyStatus.sid)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            if (Array.isArray(data.turns)) {
+              setLiveTranscript(data.turns);
+            }
+            if (data.completed) {
+              clearInterval(interval);
+              finalizeTelephonyCall(data.turns, data.duration ? `${data.duration}s` : null);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore polling error
+      }
+    }, 1500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [telephonyStatus?.sid, telephonyStatus?.type]);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (telephonyTimerRef.current) clearInterval(telephonyTimerRef.current);
+    };
+  }, []);
 
   // In-Browser Audio AI state
   const [log, setLog] = useState([]);
@@ -41,10 +128,11 @@ export function AICallModal({ lead, onClose, onShowToast }) {
 
   // --- CELLULAR TELEPHONY ACTIONS (REAL PHONE CALL TO CUSTOMER) ---
   const handleDialCustomerPhone = async () => {
-    if (!validateE164(customerPhone)) {
+    const formattedTarget = formatE164(targetPhone);
+    if (!validateE164(formattedTarget)) {
       setTelephonyStatus({
         type: 'error',
-        msg: `Invalid customer phone format (${customerPhone || 'empty'}). Please use E.164 format (e.g. +91 98765 43210).`
+        msg: `Invalid customer phone format (${targetPhone || 'empty'}). Please use E.164 format (e.g. +91 98765 43210).`
       });
       return;
     }
@@ -52,7 +140,7 @@ export function AICallModal({ lead, onClose, onShowToast }) {
     setIsDialing(true);
     setTelephonyStatus({
       type: 'loading',
-      msg: `Connecting to Cloud Telephony... Dialing ${customerName}'s phone (${customerPhone})...`
+      msg: `Connecting to Twilio Cloud Telephony... Dialing ${customerName}'s phone (${formattedTarget})...`
     });
 
     try {
@@ -60,7 +148,7 @@ export function AICallModal({ lead, onClose, onShowToast }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: customerPhone,
+          to: formattedTarget,
           name: customerName,
           purpose: purpose.trim(),
           product: customerProduct
@@ -73,32 +161,31 @@ export function AICallModal({ lead, onClose, onShowToast }) {
       if (!res.ok || !data.sid) {
         setTelephonyStatus({
           type: 'error',
-          msg: data.error || 'Cloud Telephony carrier is not connected on this server/Netlify deployment. Real cellular phone dialing requires Twilio credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM).'
+          msg: data.error || 'Twilio carrier call failed. Check your Twilio credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM) and ALLOWED_NUMBERS in .env.'
         });
       } else {
         const sid = data.sid || 'SID-' + Date.now();
+        callSavedRef.current = false;
+        telephonySecsRef.current = 0;
+        setTelephonySecs(0);
+        if (telephonyTimerRef.current) clearInterval(telephonyTimerRef.current);
+        telephonyTimerRef.current = setInterval(() => {
+          telephonySecsRef.current += 1;
+          setTelephonySecs(telephonySecsRef.current);
+        }, 1000);
+
         setTelephonyStatus({
           type: 'active',
           sid,
-          msg: `📞 Outbound AI Call Initiated! ${customerName}'s phone (${customerPhone}) is ringing. When answered, AI Avani will speak to ${customerName} regarding "${purpose.trim()}".`
+          msg: `📞 Outbound AI Call Initiated! ${customerName}'s phone (${formattedTarget}) is ringing now. When answered, AI Avani will speak directly to them regarding "${purpose.trim()}".`
         });
 
-        // Save real call record in db
-        db.addCall({
-          leadName: customerName,
-          phone: customerPhone,
-          type: 'AI Phone Call (PSTN)',
-          outcome: 'ai_dialed',
-          duration: '01:15',
-          note: `Real outbound AI call placed to ${customerName} (${customerPhone}). Purpose: "${purpose.trim()}". Twilio Call SID: ${sid}`
-        });
-
-        if (onShowToast) onShowToast(`AI Call placed to ${customerName}'s mobile!`);
+        if (onShowToast) onShowToast(`AI Call placed to ${customerName} (${formattedTarget})!`);
       }
     } catch (err) {
       setTelephonyStatus({
         type: 'error',
-        msg: 'Cloud Telephony carrier is not connected on this server/Netlify deployment. Real cellular phone dialing requires Twilio credentials (TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM).'
+        msg: err.message || 'Error connecting to /api/ai-call server endpoint.'
       });
     } finally {
       setIsDialing(false);
@@ -318,6 +405,16 @@ Important Guidelines:
           <div className="ai-title-row">
             <h3>🤖 AI Call Studio: {customerName}</h3>
             {isLive && <span className="call-timer-badge">● {formatSecs(secs)}</span>}
+            {telephonyStatus?.type === 'active' && (
+              <span className="call-timer-badge" style={{ background: '#10b981', color: '#fff' }}>
+                ● {String(Math.floor(telephonySecs / 60)).padStart(2, '0')}:{String(telephonySecs % 60).padStart(2, '0')}
+              </span>
+            )}
+            {telephonyStatus?.type === 'completed' && (
+              <span className="call-timer-badge" style={{ background: '#059669', color: '#fff' }}>
+                ✓ Completed ({telephonyStatus.duration})
+              </span>
+            )}
           </div>
           <button
             className="btn btn-secondary btn-icon"
@@ -332,17 +429,17 @@ Important Guidelines:
         <div className="ai-modal-tabs">
           <button
             type="button"
-            className={`ai-tab-btn ${activeTab === 'browser' ? 'active' : ''}`}
-            onClick={() => setActiveTab('browser')}
-          >
-            🎙️ Live Voice AI Call (Interactive Demo)
-          </button>
-          <button
-            type="button"
             className={`ai-tab-btn ${activeTab === 'cellular' ? 'active' : ''}`}
             onClick={() => setActiveTab('cellular')}
           >
-            📡 Cloud Telephony (Twilio PSTN)
+            📡 Real AI Phone Call (Twilio to Customer)
+          </button>
+          <button
+            type="button"
+            className={`ai-tab-btn ${activeTab === 'browser' ? 'active' : ''}`}
+            onClick={() => setActiveTab('browser')}
+          >
+            🎙️ Browser Audio Test (Demonstration)
           </button>
         </div>
 
@@ -351,18 +448,22 @@ Important Guidelines:
         {activeTab === 'cellular' && (
           <div className="telephony-pane">
             <div className="telephony-info-box">
-              <b>How Real AI Phone Calling Works:</b> Clicking the button below instructs our Cloud Telephony gateway to place a real outbound cellular call to <b>{customerName}</b> at <b>{customerPhone || '(enter phone)'}</b>. When {customerName} answers, <b>AI Avani</b> speaks into the call, asks qualifying questions based on your stated purpose, listens to replies, and logs the full call record.
+              <b>How Real AI Phone Calling Works:</b> Clicking the button below instructs Twilio to place an actual cellular phone call to <b>{customerName}</b> at <b>{targetPhone || '(enter phone)'}</b>. When the human answers their phone, <b>AI Avani</b> speaks directly to them over the call, answers their questions dynamically using Groq, and converses with them naturally.
             </div>
 
             <div className="telephony-field">
-              <label>Customer Destination Phone</label>
+              <label>Customer Destination Phone (E.164 with Country Code)</label>
               <input
                 type="text"
                 className="telephony-input"
-                value={customerPhone}
-                readOnly
+                value={targetPhone}
+                onChange={(e) => setTargetPhone(e.target.value)}
+                placeholder="+919876543210"
                 aria-label="Target phone number"
               />
+              <small style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                💡 <b>Twilio Trial Tip:</b> Free-tier Twilio accounts can only call Verified Caller IDs. Enter your own verified mobile number here to test receiving the call live.
+              </small>
             </div>
 
             <div className="telephony-field">
@@ -383,7 +484,7 @@ Important Guidelines:
                 {telephonyStatus.type === 'error' && (
                   <div style={{ marginTop: '10px', fontSize: '11px', opacity: 0.95 }}>
                     <p style={{ marginBottom: '6px', color: '#cbd5e1' }}>
-                      💡 <b>Test right now:</b> You can speak with Avani immediately on your phone using your device microphone & speaker!
+                      💡 <b>Browser Test:</b> You can also preview what Avani sounds like right now in your browser without placing a phone call:
                     </p>
                     <button
                       type="button"
@@ -391,31 +492,84 @@ Important Guidelines:
                       style={{ width: '100%', justifyContent: 'center' }}
                       onClick={() => setActiveTab('browser')}
                     >
-                      🎙️ Test Avani Voice in Browser Now
+                      🎙️ Switch to In-Browser Voice Demo
                     </button>
                   </div>
                 )}
               </div>
             )}
 
+            {/* LIVE CONVERSATION FEED (STREAMED DIRECT FROM ACTIVE TWILIO CALL) */}
+            {telephonyStatus?.type === 'active' && (
+              <div className="live-call-transcript-container" style={{ marginTop: '14px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '600', color: '#10b981' }}>
+                    <span className="live-dot pulse" style={{ color: '#10b981' }}>●</span> Live Phone Stream
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#64748b', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '12px' }}>
+                    SID: {telephonyStatus.sid?.slice(0, 12)}...
+                  </span>
+                </div>
+
+                <div className="ai-log-box" style={{ maxHeight: '180px', overflowY: 'auto', background: 'rgba(15, 23, 42, 0.6)' }}>
+                  {liveTranscript.length === 0 ? (
+                    <div className="ai-log-empty" style={{ fontStyle: 'italic', fontSize: '12px' }}>
+                      ⏳ Connecting... As soon as you and Avani speak on the phone, your live conversation will appear here in real time!
+                    </div>
+                  ) : (
+                    liveTranscript.map((turn, idx) => (
+                      <div
+                        key={idx}
+                        className={`ai-log-line ${turn.speaker.includes('Avani') ? 'agent' : 'customer'}`}
+                      >
+                        <b>{turn.speaker}:</b> {turn.text}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
 
             <div className="telephony-actions">
-              <button
-                type="button"
-                className="btn btn-green flex-1"
-                disabled={isDialing || !customerPhone}
-                onClick={handleDialCustomerPhone}
-                aria-label="Dial customer phone"
-              >
-                {isDialing ? '⏳ Dialing Mobile...' : `🚀 Dial ${customerName}'s Phone via AI (+91...)`}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
+              {telephonyStatus?.type === 'active' ? (
+                <button
+                  type="button"
+                  className="btn btn-red flex-1"
+                  onClick={() => finalizeTelephonyCall(liveTranscript)}
+                  aria-label="End call and save record"
+                >
+                  🔴 End Call & Save Record ({String(Math.floor(telephonySecs / 60)).padStart(2, '0')}:{String(telephonySecs % 60).padStart(2, '0')})
+                </button>
+              ) : telephonyStatus?.type === 'completed' ? (
+                <button
+                  type="button"
+                  className="btn btn-green flex-1"
+                  onClick={onClose}
+                  aria-label="Done and view in recent calls"
+                >
+                  ✓ Done & View in Recent Calls
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-green flex-1"
+                    disabled={isDialing || !targetPhone}
+                    onClick={handleDialCustomerPhone}
+                    aria-label="Dial customer phone"
+                  >
+                    {isDialing ? '⏳ Dialing Phone...' : `🚀 Call ${customerName} Now (AI Speaks to Human)`}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
